@@ -2,43 +2,305 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel del Profesor</title>
+    <title>Panel del Profesor - Generador de Exámenes</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial; }
         body { background: #1e3c72; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 20px; padding: 30px; }
-        h1 { color: #1e3c72; margin-bottom: 20px; }
-        textarea { width: 100%; height: 300px; font-family: monospace; padding: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; padding: 30px; }
+        h1, h2, h3 { color: #1e3c72; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 10px; margin: 20px 0; border-bottom: 2px solid #1e3c72; }
+        .tab { padding: 10px 20px; background: #f0f0f0; border: none; cursor: pointer; font-weight: bold; border-radius: 10px 10px 0 0; }
+        .tab.active { background: #1e3c72; color: white; }
+        .tab-content { display: none; padding: 20px 0; }
+        .tab-content.active { display: block; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }
+        .campo { background: #f8f9fa; padding: 20px; border-radius: 10px; }
+        .campo label { display: block; font-weight: bold; margin-bottom: 10px; }
+        .campo select, .campo input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; }
         .btn { background: #1e3c72; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #2a5298; }
+        pre { background: #1e3c72; color: #00ff00; padding: 20px; border-radius: 10px; overflow-x: auto; white-space: pre-wrap; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #1e3c72; color: white; }
+        th { background: #1e3c72; color: white; padding: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #ddd; }
+        .filtros { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .filtros input, .filtros select { padding: 8px; border: 2px solid #ddd; border-radius: 5px; flex: 1; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📊 Panel del Profesor</h1>
+        <h1>📊 Panel del Profesor - Generador de Exámenes</h1>
         <p><a href="index.html">← Volver al inicio</a></p>
 
-        <h2>Resultados de Estudiantes</h2>
-        <div id="resultados"></div>
+        <div class="tabs">
+            <button class="tab active" onclick="mostrarTab('generar')">➕ Generar Examen</button>
+            <button class="tab" onclick="mostrarTab('resultados')">📋 Resultados</button>
+        </div>
 
-        <script>
-            function mostrarResultados() {
-                const resultados = JSON.parse(localStorage.getItem('resultadosEstudiantes')) || [];
-                let html = '<table><tr><th>Nombre</th><th>Área</th><th>Fecha</th><th>Calificación</th></tr>';
-                if (resultados.length === 0) {
-                    html = '<p>No hay resultados aún. Los estudiantes deben tomar un examen primero.</p>';
-                } else {
-                    resultados.forEach(r => {
-                        html += `<tr><td>${r.nombre}</td><td>${r.area || 'Matemáticas'}</td><td>${r.fecha}</td><td><strong>${r.calificacion}%</strong></td></tr>`;
-                    });
-                    html += '</table>';
-                }
-                document.getElementById('resultados').innerHTML = html;
-            }
-            mostrarResultados();
-        </script>
+        <!-- TAB GENERAR EXAMEN -->
+        <div id="tab-generar" class="tab-content active">
+            <h2>Crear Nuevo Examen</h2>
+            <div class="grid">
+                <div class="campo">
+                    <label>Área:</label>
+                    <select id="area">
+                        <option value="matematicas">🔢 Matemáticas</option>
+                        <option value="trigonometria">📐 Trigonometría</option>
+                        <option value="lectora">📖 Comprensión Lectora</option>
+                        <option value="ciencias">🔬 Ciencias</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label>Nivel:</label>
+                    <select id="nivel">
+                        <option value="basico">🌱 Básico</option>
+                        <option value="intermedio" selected>📊 Intermedio</option>
+                        <option value="avanzado">🎯 Avanzado</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label>Preguntas:</label>
+                    <input type="number" id="numPreguntas" min="5" max="30" value="15">
+                </div>
+            </div>
+            <button class="btn" onclick="generarExamen()">🎲 Generar Examen</button>
+
+            <div id="codigoExamen" style="margin-top: 30px; display: none;">
+                <h3>✅ Código del examen generado:</h3>
+                <pre id="codigoHTML"></pre>
+                <button class="btn" onclick="copiarCodigo()">📋 Copiar código</button>
+                <p style="margin-top: 10px;">1. Copia este código<br>2. Crea un nuevo archivo .html<br>3. Pégalo y súbelo a GitHub</p>
+            </div>
+        </div>
+
+        <!-- TAB RESULTADOS -->
+        <div id="tab-resultados" class="tab-content">
+            <h2>Resultados de Estudiantes</h2>
+            
+            <div class="filtros">
+                <input type="text" id="filtroNombre" placeholder="Buscar por nombre" onkeyup="filtrarResultados()">
+                <select id="filtroArea" onchange="filtrarResultados()">
+                    <option value="">Todas las áreas</option>
+                    <option value="matematicas">Matemáticas</option>
+                    <option value="trigonometria">Trigonometría</option>
+                    <option value="lectora">Comprensión Lectora</option>
+                    <option value="ciencias">Ciencias</option>
+                </select>
+            </div>
+
+            <div id="tablaResultados"></div>
+            <button class="btn" onclick="exportarExcel()" style="margin-top: 20px;">📥 Exportar a Excel</button>
+        </div>
     </div>
+
+    <script>
+        // Banco de preguntas
+        const bancoPreguntas = {
+            matematicas: {
+                basico: [
+                    { pregunta: "¿Cuánto es 15 + 7 × 2?", opciones: ["44", "29", "24", "39"], correcta: 1, explicacion: "Primero multiplica: 7×2=14, luego suma: 15+14=29" },
+                    { pregunta: "Área de rectángulo 8×5", opciones: ["13", "26", "40", "80"], correcta: 2, explicacion: "Área = base × altura = 40" }
+                ],
+                intermedio: [
+                    { pregunta: "Resuelve: 3(x+4)=2(x-1)", opciones: ["x=-14", "x=14", "x=-10", "x=10"], correcta: 0, explicacion: "3x+12=2x-2 → x=-14" }
+                ],
+                avanzado: [
+                    { pregunta: "Sistema: x+y=10, x-y=4", opciones: ["x=7,y=3", "x=6,y=4", "x=8,y=2", "x=5,y=5"], correcta: 0, explicacion: "Sumando: 2x=14 → x=7, y=3" }
+                ]
+            },
+            trigonometria: {
+                intermedio: [
+                    { pregunta: "Si sen θ = 3/5, ¿cos θ?", opciones: ["4/5", "3/4", "5/4", "2/5"], correcta: 0, explicacion: "sen²+cos²=1 → 9/25+cos²=1 → cos²=16/25 → cos=4/5" },
+                    { pregunta: "tan 45° + tan 30°", opciones: ["1+√3", "1+√3/3", "1+1/√3", "2"], correcta: 1, explicacion: "tan45=1, tan30=√3/3" },
+                    { pregunta: "sen 120°", opciones: ["1/2", "√3/2", "-1/2", "-√3/2"], correcta: 1, explicacion: "sen120 = sen(60) = √3/2" },
+                    { pregunta: "cos 180°", opciones: ["1", "0", "-1", "1/2"], correcta: 2, explicacion: "cos180 = -1" },
+                    { pregunta: "sen²x + cos²x", opciones: ["sen x", "cos x", "1", "tan x"], correcta: 2, explicacion: "Identidad pitagórica = 1" }
+                ]
+            }
+        };
+
+        function mostrarTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if (tab === 'generar') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('tab-generar').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('tab-resultados').classList.add('active');
+                mostrarResultados();
+            }
+        }
+
+        function generarExamen() {
+            const area = document.getElementById('area').value;
+            const nivel = document.getElementById('nivel').value;
+            const numPreguntas = parseInt(document.getElementById('numPreguntas').value);
+            
+            const preguntasDisponibles = bancoPreguntas[area]?.[nivel] || bancoPreguntas.matematicas.intermedio;
+            const preguntas = [];
+            
+            for (let i = 0; i < numPreguntas; i++) {
+                preguntas.push(preguntasDisponibles[i % preguntasDisponibles.length]);
+            }
+
+            let html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Examen</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f0f8ff; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; }
+        h1 { color: #1e3c72; }
+        .pregunta { background: #f8f9fa; padding: 20px; margin: 15px 0; border-left: 5px solid #1e3c72; }
+        .opcion { margin: 10px 0; }
+        .btn { background: #1e3c72; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .feedback { margin-top: 10px; padding: 10px; border-radius: 5px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 Examen de ${area}</h1>
+        <p>Nivel: ${nivel} | ${numPreguntas} preguntas</p>
+        
+        <div id="examen">`;
+            
+            preguntas.forEach((p, i) => {
+                html += `
+            <div class="pregunta">
+                <h3>${i+1}. ${p.pregunta}</h3>`;
+                p.opciones.forEach((op, j) => {
+                    html += `
+                <div class="opcion">
+                    <input type="radio" name="q${i}" value="${j}" id="q${i}o${j}">
+                    <label for="q${i}o${j}">${op}</label>
+                </div>`;
+                });
+                html += `<div id="fb${i}" class="feedback"></div></div>`;
+            });
+
+            html += `
+        </div>
+        
+        <button class="btn" onclick="calificar()">Verificar respuestas</button>
+        <div id="resultado" style="margin-top:20px; display:none;"></div>
+    </div>
+
+    <script>
+        const correctas = [${preguntas.map(p => p.correcta).join(', ')}];
+        const explicaciones = [${preguntas.map(p => `"${p.explicacion}"`).join(', ')}];
+        
+        function calificar() {
+            let aciertos = 0;
+            for (let i = 0; i < ${numPreguntas}; i++) {
+                const selec = document.querySelector(\`input[name="q\${i}"]:checked\`);
+                const fb = document.getElementById('fb' + i);
+                if (selec) {
+                    const valor = parseInt(selec.value);
+                    if (valor === correctas[i]) {
+                        aciertos++;
+                        fb.innerHTML = '✅ Correcto';
+                        fb.style.background = '#d4edda';
+                    } else {
+                        fb.innerHTML = '❌ ' + explicaciones[i];
+                        fb.style.background = '#f8d7da';
+                    }
+                } else {
+                    fb.innerHTML = '⚠️ ' + explicaciones[i];
+                    fb.style.background = '#fff3cd';
+                }
+                fb.style.display = 'block';
+            }
+            
+            const porcentaje = (aciertos / ${numPreguntas}) * 100;
+            const nombre = prompt('Ingresa tu nombre:');
+            if (nombre) {
+                const resultados = JSON.parse(localStorage.getItem('resultadosEstudiantes')) || [];
+                resultados.push({
+                    nombre: nombre,
+                    area: '${area}',
+                    fecha: new Date().toLocaleString(),
+                    calificacion: porcentaje.toFixed(1)
+                });
+                localStorage.setItem('resultadosEstudiantes', JSON.stringify(resultados));
+            }
+            
+            document.getElementById('resultado').style.display = 'block';
+            document.getElementById('resultado').innerHTML = 
+                '<h3 style="color:' + (porcentaje>=70?'green':'red') + '">' + 
+                (porcentaje>=70?'✅ APROBADO':'❌ REPROBADO') + 
+                '</h3><p style="font-size:2rem;">' + porcentaje.toFixed(1) + '%</p>' +
+                '<p>Acertaste ' + aciertos + ' de ${numPreguntas}</p>';
+        }
+    <\/script>
+</body>
+</html>`;
+
+            document.getElementById('codigoHTML').textContent = html;
+            document.getElementById('codigoExamen').style.display = 'block';
+        }
+
+        function copiarCodigo() {
+            const codigo = document.getElementById('codigoHTML');
+            const textarea = document.createElement('textarea');
+            textarea.value = codigo.textContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('✅ Código copiado');
+        }
+
+        function mostrarResultados() {
+            const resultados = JSON.parse(localStorage.getItem('resultadosEstudiantes')) || [];
+            let html = '<table><tr><th>Nombre</th><th>Área</th><th>Fecha</th><th>Calificación</th></tr>';
+            
+            if (resultados.length === 0) {
+                html = '<p>No hay resultados aún.</p>';
+            } else {
+                resultados.forEach(r => {
+                    html += `<tr><td>${r.nombre}</td><td>${r.area}</td><td>${r.fecha}</td><td><strong>${r.calificacion}%</strong></td></tr>`;
+                });
+                html += '</table>';
+            }
+            document.getElementById('tablaResultados').innerHTML = html;
+        }
+
+        function filtrarResultados() {
+            const nombre = document.getElementById('filtroNombre').value.toLowerCase();
+            const area = document.getElementById('filtroArea').value;
+            const resultados = JSON.parse(localStorage.getItem('resultadosEstudiantes')) || [];
+            
+            let filtrados = resultados;
+            if (nombre) filtrados = filtrados.filter(r => r.nombre.toLowerCase().includes(nombre));
+            if (area) filtrados = filtrados.filter(r => r.area === area);
+            
+            let html = '<table><tr><th>Nombre</th><th>Área</th><th>Fecha</th><th>Calificación</th></tr>';
+            filtrados.forEach(r => {
+                html += `<tr><td>${r.nombre}</td><td>${r.area}</td><td>${r.fecha}</td><td><strong>${r.calificacion}%</strong></td></tr>`;
+            });
+            html += '</table>';
+            document.getElementById('tablaResultados').innerHTML = html;
+        }
+
+        function exportarExcel() {
+            const resultados = JSON.parse(localStorage.getItem('resultadosEstudiantes')) || [];
+            let csv = "Nombre,Área,Fecha,Calificación\n";
+            resultados.forEach(r => {
+                csv += `"${r.nombre}",${r.area},${r.fecha},${r.calificacion}%\n`;
+            });
+            
+            const blob = new Blob(["\uFEFF" + csv], {type: 'text/csv'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'resultados.csv';
+            a.click();
+        }
+
+        // Cargar resultados al iniciar
+        mostrarResultados();
+    </script>
 </body>
 </html>
